@@ -69,7 +69,9 @@ public class BaseRepository {
         if (id == 0) {
             id = idGenerator.getNextId(object.getClass().getSimpleName().toLowerCase(), appName);
         }
+        // 更新
         jdbcTemplate.update(sqlBuilder.getSQLCreate(object.getClass(), id), new BeanPropertySqlParameterSource(object));
+        idGenerator.updateKeyGen(object.getClass().getSimpleName().toLowerCase(), id);
         return id;
     }
 

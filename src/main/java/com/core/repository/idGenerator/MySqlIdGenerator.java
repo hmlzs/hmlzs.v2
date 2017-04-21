@@ -110,4 +110,11 @@ public class MySqlIdGenerator implements IdGenerator {
         return ids;
     }
 
+    public void updateKeyGen(String table, long id) {
+        HashMap<String, String> params = new HashMap<String, String>();
+
+        params.put("table_name", table);
+        params.put("last_used_id", String.valueOf(id));
+        namedParameterJdbcTemplate.update("UPDATE " + dbConfig.getDbName() + "_keygen SET last_used_id = :last_used_id WHERE table_name = :table_name ", params);
+    }
 }

@@ -16,10 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by sun
@@ -130,15 +127,16 @@ public class SecuritySupport {
      * @param id
      */
     @Transactional
-    public void createSession(HttpServletResponse response, String account, long id) {
+    private void createSession(HttpServletResponse response, String account, long id) {
 
         String sessionKey = EncryptUtil.md5(account + ":" + System.currentTimeMillis());
         try {
-
             Session session = new Session();
+            Calendar calendar = Calendar.getInstance();
+            calendar.add(Calendar.DAY_OF_MONTH, +1);
+            calendar.add(Calendar.DAY_OF_MONTH, +6);
             session.setLoginDate(new Date());
-            // session.setExpireDate();
-            // TODO
+            session.setExpireDate(calendar.getTime());
             session.setSessionKey(sessionKey);
             session.setAccount(account);
 
@@ -146,7 +144,6 @@ public class SecuritySupport {
             session.setUserId(id);
 
             securityRepository.create(session);
-
         } catch (Exception e) {
             e.printStackTrace();
             logger.error(e);
@@ -157,33 +154,45 @@ public class SecuritySupport {
         // cookie.setSecure(true);
         cookie.setDomain(request.getServerName());
         cookie.setPath("/");
-
+        // 一周
+        cookie.setMaxAge(604800);
         response.addCookie(cookie);
     }
 
     /**
-     *
+     * 退出
      * @param response
      */
     public void logout(HttpServletResponse response) {
-
         try {
             String cookieValue = getCookie(TOOKEN_COOKIE_NAME);
-
             Session session = findSession(cookieValue);
             if (session != null && session.getId() > 0) {
                 securityRepository.delete(Session.class, session.getId());
             }
-            if (StringUtils.isNotBlank(cookieValue)) {
-                Cookie cookie = new Cookie(TOOKEN_COOKIE_NAME, cookieValue);
-                cookie.setPath("/");
-                cookie.setDomain(request.getServerName());
-                cookie.setMaxAge(0);
-                response.addCookie(cookie);
-            }
+            deleteCookie(response, cookieValue);
+            //根据生成随机数决定是否删除Session表中过期数据
+            if ((int)(1 + Math.random() * 100) == 30) {
+                clearSessionExpireDate();
+            };
         } catch (Exception e) {
             e.printStackTrace();
             logger.error(e);
+        }
+    }
+
+    /**
+     * 删除Cookie
+     * @param response
+     * @param cookieValue
+     */
+    public void deleteCookie(HttpServletResponse response, String cookieValue) {
+        if (StringUtils.isNotBlank(cookieValue)) {
+            Cookie cookie = new Cookie(TOOKEN_COOKIE_NAME, cookieValue);
+            cookie.setPath("/");
+            cookie.setDomain(request.getServerName());
+            cookie.setMaxAge(0);
+            response.addCookie(cookie);
         }
     }
 
@@ -201,7 +210,6 @@ public class SecuritySupport {
     }
 
     public Session findSession(String key) {
-
         Map<String, Object> param = new HashMap<String, Object>();
         param.put("sessionKey", key);
         param.put("status", Constant.OPEN);
@@ -212,6 +220,35 @@ public class SecuritySupport {
         }
 
         return null;
+    }
+
+    /**
+     * 查询 Session 已过期数据
+     * @return
+     */
+    public List<Session> listAllExpireDateSession() {
+        Map<String, Object> param = new HashMap<String, Object>();
+        param.put("expireDate", new Date());
+        List<Session> list = securityRepository.list(Session.class, " WHERE :expireDate > expireDate", param);
+        if (list != null && list.size() != 0) {
+            return list;
+        }
+        return null;
+    }
+
+    /**
+     * 清理已过期的Session数据
+     * @return
+     */
+    public void clearSessionExpireDate() {
+        List<Session> sessionList = listAllExpireDateSession();
+        if (sessionList.size() == 0) {
+            return;
+        }
+        for (Session session : sessionList) {
+            // 清理过期 Cache 与 数据库
+            securityRepository.delete(Session.class, session.getId());
+        }
     }
 
     /**

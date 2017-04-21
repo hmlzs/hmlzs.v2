@@ -90,8 +90,8 @@ public class LoginController extends BaseController {
      */
     @RequestMapping("/logout")
     public String logout(HttpServletResponse resp) {
-        SecuritySupport support = supportFactory.getSecuritySupport();
-        support.logout(resp);
+        SecuritySupport securitySupport = supportFactory.getSecuritySupport();
+        securitySupport.logout(resp);
 
         return getViewRedirect("login");
     }

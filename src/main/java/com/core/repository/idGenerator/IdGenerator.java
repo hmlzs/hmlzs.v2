@@ -12,4 +12,5 @@ public interface IdGenerator {
     List<Long> initKeyGen(String table, String appName);
 
     List<Long> updateKeyGen(String table);
+    void updateKeyGen(String table, long id);
 }
